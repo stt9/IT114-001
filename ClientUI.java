@@ -5,6 +5,7 @@ import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
@@ -39,10 +40,13 @@ public class ClientUI extends JFrame implements Event {
 	JPanel userPanel;
 	List<User> users = new ArrayList<User>();
 	private final static Logger log = Logger.getLogger(ClientUI.class.getName());
-	Dimension windowSize = new Dimension(400, 400);
+	Dimension windowSize = Toolkit.getDefaultToolkit().getScreenSize();
+	GamePanel game;
 
 	public ClientUI(String title) {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		windowSize.width *= .8;
+		windowSize.height *= .8;
 		setPreferredSize(windowSize);
 		setLocationRelativeTo(null);
 		self = this;
@@ -53,6 +57,7 @@ public class ClientUI extends JFrame implements Event {
 		createUserInputScreen();
 		createPanelRoom();
 		createPanelUserList();
+		createDrawingPanel();
 		showUI();
 	}
 
@@ -60,11 +65,11 @@ public class ClientUI extends JFrame implements Event {
 		JPanel panel = new JPanel();
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 		JLabel hostLabel = new JLabel("Host:");
-		JTextField host = new JTextField("35.208.133.62");
+		JTextField host = new JTextField("192.168.1.47");
 		panel.add(hostLabel);
 		panel.add(host);
 		JLabel portLabel = new JLabel("Port:");
-		JTextField port = new JTextField("3000");
+		JTextField port = new JTextField("4545");
 		panel.add(portLabel);
 		panel.add(port);
 		JButton button = new JButton("Next");
@@ -168,6 +173,14 @@ public class ClientUI extends JFrame implements Event {
 		scroll.setPreferredSize(d);
 
 		textArea.getParent().getParent().getParent().add(scroll, BorderLayout.EAST);
+	}
+
+	void createDrawingPanel() {
+		game = new GamePanel();
+		game.setPreferredSize(new Dimension((int) (windowSize.width * .6), windowSize.height));
+		textArea.getParent().getParent().getParent().add(game, BorderLayout.WEST);
+		// TODO remove from here
+		game.attachListeners();
 	}
 
 	void addClient(String name) {
