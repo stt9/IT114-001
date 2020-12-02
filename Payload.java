@@ -4,9 +4,6 @@ import java.io.Serializable;
 
 public class Payload implements Serializable {
 
-	/**
-	 * baeldung.com/java-serial-version-uid
-	 */
 	private static final long serialVersionUID = -6687715510484845706L;
 
 	private String clientName;
@@ -54,4 +51,5 @@ public class Payload implements Serializable {
 		return String.format("Type[%s], Number[%s], Message[%s]", getPayloadType().toString(), getNumber(),
 				getMessage());
 	}
+
 }
