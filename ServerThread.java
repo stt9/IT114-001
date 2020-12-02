@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -67,7 +69,67 @@ public class ServerThread extends Thread {
 	 * @param message
 	 * @return
 	 */
-	protected boolean send(String clientName, String message) {
+	public boolean send(String clientName, String message) {
+		// checking if there are multiple text style triggers in the message
+		int bold = 0;
+		int italic = 0;
+		int underline = 0;
+
+		for (int i = 0; i < message.length(); i++) {
+			if (message.charAt(i) == '@') {
+				bold++;
+			} else if (message.charAt(i) == '#') {
+				italic++;
+			} else if (message.charAt(i) == '_') {
+				underline++;
+			}
+		}
+
+		// pairs of triggers replaced with respective html tags
+		if (bold >= 2) {
+			message = message + " ";
+			message = message.replace("@", "<b>");
+			message = message.replace("<b> ", "</b> ");
+		}
+		if (italic >= 2) {
+			message = message + " ";
+			message = message.replace("#", "<i>");
+			message = message.replace("<i> ", "</i> ");
+		}
+		if (underline >= 2) {
+			message = message + " ";
+			message = message.replace("_", "<u>");
+			message = message.replace("<u> ", "</u> ");
+		}
+
+		// colors
+		int color = 0;
+		for (int i = 0; i < message.length(); i++) {
+			if (message.charAt(i) == '%') {
+				color++;
+			}
+		}
+
+		if (color % 2 == 0) {
+			message = message + " ";
+			message = message.replace("% ", "</b> ");
+
+			String[] words = message.split(" ");
+			message = "";
+			for (String word : words) {
+
+				if (word.contains("%")) {
+					int trigger = word.indexOf('%');
+					String colors = word.substring(0, trigger);
+					String colorStyle = "<b style=color:" + colors + ">";
+					String replace = word.substring(0, trigger + 1);
+					word = word.replace(replace, colorStyle);
+				}
+
+				message = message + word + " ";
+			}
+		}
+
 		Payload payload = new Payload();
 		payload.setPayloadType(PayloadType.MESSAGE);
 		payload.setClientName(clientName);
@@ -89,9 +151,10 @@ public class ServerThread extends Thread {
 		return sendPayload(payload);
 	}
 
-	protected boolean sendClearList() {
+	protected boolean sendRoom(String room) {
 		Payload payload = new Payload();
-		payload.setPayloadType(PayloadType.CLEAR_PLAYERS);
+		payload.setPayloadType(PayloadType.GET_ROOMS);
+		payload.setMessage(room);
 		return sendPayload(payload);
 	}
 
@@ -115,7 +178,6 @@ public class ServerThread extends Thread {
 	private void processPayload(Payload p) {
 		switch (p.getPayloadType()) {
 		case CONNECT:
-			// here we'll fetch a clientName from our client
 			String n = p.getClientName();
 			if (n != null) {
 				clientName = n;
@@ -126,14 +188,25 @@ public class ServerThread extends Thread {
 			}
 			break;
 		case DISCONNECT:
-			isRunning = false;// this will break the while loop in run() and clean everything up
+			isRunning = false;
 			break;
 		case MESSAGE:
 			currentRoom.sendMessage(this, p.getMessage());
 			break;
-		case CLEAR_PLAYERS:
-			// we currently don't need to do anything since the UI/Client won't be sending
-			// this
+		case GET_ROOMS:
+			List<String> roomNames = currentRoom.getRooms();
+			Iterator<String> iter = roomNames.iterator();
+			while (iter.hasNext()) {
+				String room = iter.next();
+				if (room != null && !room.equalsIgnoreCase(currentRoom.getName())) {
+					if (!sendRoom(room)) {
+						break;
+					}
+				}
+			}
+			break;
+		case JOIN_ROOM:
+			currentRoom.joinRoom(p.getMessage(), this);
 			break;
 		default:
 			log.log(Level.INFO, "Unhandled payload on server: " + p);

@@ -1,4 +1,3 @@
-
 package server;
 
 import java.util.ArrayList;
@@ -8,14 +7,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Room implements AutoCloseable {
-	private static SocketServer server;// used to refer to accessible server functions
+	private static SocketServer server;
 	private String name;
 	private final static Logger log = Logger.getLogger(Room.class.getName());
 
-	// Commands
 	private final static String COMMAND_TRIGGER = "/";
 	private final static String CREATE_ROOM = "createroom";
 	private final static String JOIN_ROOM = "joinroom";
+	private final static String ROLL = "roll";
+	private final static String FLIP = "flip";
+	private final static String PM = "@";
 
 	public Room(String name) {
 		this.name = name;
@@ -38,7 +39,7 @@ public class Room implements AutoCloseable {
 		} else {
 			clients.add(client);
 			if (client.getClientName() != null) {
-				client.sendClearList();
+				// client.sendClearList();
 				sendConnectionStatus(client, true, "joined the room " + getName());
 				updateClientList(client);
 			}
@@ -72,7 +73,7 @@ public class Room implements AutoCloseable {
 		}
 		try {
 			log.log(Level.INFO, "Closing empty room: " + name);
-			close1();
+			close();
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -120,6 +121,21 @@ public class Room implements AutoCloseable {
 					joinRoom(roomName, client);
 					wasCommand = true;
 					break;
+				case ROLL:
+					int roll = (int) Math.random() * (1000);
+					String rMsg = "You rolled: " + Integer.toString(roll);
+					sendMessage(client, rMsg);
+					wasCommand = true;
+					break;
+				case FLIP:
+					int flip = (int) Math.random() * 2;
+					String fMsg = "<<b style=color:black> Heads </b>";
+					if (flip == 0) {
+						fMsg = "<b style=color:black> Tails </b>";
+					}
+					sendMessage(client, fMsg);
+					wasCommand = true;
+					break;
 				}
 			}
 		} catch (Exception e) {
@@ -152,11 +168,14 @@ public class Room implements AutoCloseable {
 	protected void sendMessage(ServerThread sender, String message) {
 		log.log(Level.INFO, getName() + ": Sending message to " + clients.size() + " clients");
 		if (processCommands(message, sender)) {
-			// it was a command, don't broadcast
+			return;
+		}
+		if (sendPM(sender, message)) {
 			return;
 		}
 		Iterator<ServerThread> iter = clients.iterator();
 		while (iter.hasNext()) {
+
 			ServerThread client = iter.next();
 			boolean messageSent = client.send(sender.getClientName(), message);
 			if (!messageSent) {
@@ -166,32 +185,35 @@ public class Room implements AutoCloseable {
 		}
 	}
 
-	/***
-	 * Will attempt to migrate any remaining clients to the Lobby room. Will then
-	 * set references to null and should be eligible for garbage collection
-	 */
-	public void close1() throws Exception {
-		int clientCount = clients.size();
-		if (clientCount > 0) {
-			log.log(Level.INFO, "Migrating " + clients.size() + " to Lobby");
-			Iterator<ServerThread> iter = clients.iterator();
-			Room lobby = server.getLobby();
-			while (iter.hasNext()) {
-				ServerThread client = iter.next();
-				lobby.addClient(client);
-				iter.remove();
+	protected boolean sendPM(ServerThread sender, String message) {
+		boolean isPM = false;
+		String receiver = null;
+
+		if (message.indexOf("@") > -1) {
+			String[] words = message.split(" ");
+			for (String word : words) {
+				if (word.charAt(0) == '@') {
+					receiver = word.substring(1);
+					isPM = true;
+
+					Iterator<ServerThread> iter = clients.iterator();
+					while (iter.hasNext()) {
+						ServerThread c = iter.next();
+						if (c.getClientName().equals(receiver)) {
+							c.send(sender.getClientName(), message);
+						}
+					}
+				}
 			}
-			log.log(Level.INFO, "Done Migrating " + clients.size() + " to Lobby");
+			sender.send(sender.getClientName(), message);
 		}
-		server.cleanupRoom(this);
-		name = null;
-		// should be eligible for garbage collection now
+		return isPM;
 	}
 
-	/***
-	 * Will attempt to migrate any remaining clients to the Lobby room. Will then
-	 * set references to null and should be eligible for garbage collection
-	 */
+	public List<String> getRooms() {
+		return server.getRooms();
+	}
+
 	@Override
 	public void close() throws Exception {
 		int clientCount = clients.size();
@@ -208,7 +230,6 @@ public class Room implements AutoCloseable {
 		}
 		server.cleanupRoom(this);
 		name = null;
-		// should be eligible for garbage collection now
 	}
 
 }
