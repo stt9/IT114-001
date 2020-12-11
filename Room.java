@@ -17,6 +17,8 @@ public class Room implements AutoCloseable {
 	private final static String ROLL = "roll";
 	private final static String FLIP = "flip";
 	private final static String PM = "@";
+	private final static String MUTE = "mute";
+	private final static String UNMUTE = "unmute";
 
 	public Room(String name) {
 		this.name = name;
@@ -39,7 +41,7 @@ public class Room implements AutoCloseable {
 		} else {
 			clients.add(client);
 			if (client.getClientName() != null) {
-				// client.sendClearList();
+				client.sendClearList();
 				sendConnectionStatus(client, true, "joined the room " + getName());
 				updateClientList(client);
 			}
@@ -59,7 +61,6 @@ public class Room implements AutoCloseable {
 	protected synchronized void removeClient(ServerThread client) {
 		clients.remove(client);
 		if (clients.size() > 0) {
-			// sendMessage(client, "left the room");
 			sendConnectionStatus(client, false, "left the room " + getName());
 		} else {
 			cleanupEmptyRoom();
@@ -67,7 +68,6 @@ public class Room implements AutoCloseable {
 	}
 
 	private void cleanupEmptyRoom() {
-		// If name is null it's already been closed. And don't close the Lobby
 		if (name == null || name.equalsIgnoreCase(SocketServer.LOBBY)) {
 			return;
 		}
@@ -122,19 +122,43 @@ public class Room implements AutoCloseable {
 					wasCommand = true;
 					break;
 				case ROLL:
-					int roll = (int) Math.random() * (1000);
-					String rMsg = "You rolled: " + Integer.toString(roll);
+					// roll a number from 1 to 1000 randomly
+					// changed the output text into underlined
+					int randomNum = (int) ((Math.random() * (1000)));
+					String rMsg = "<u>The number is<u> " + Integer.toString(randomNum);
 					sendMessage(client, rMsg);
 					wasCommand = true;
 					break;
 				case FLIP:
-					int flip = (int) Math.random() * 2;
-					String fMsg = "<<b style=color:black> Heads </b>";
-					if (flip == 0) {
-						fMsg = "<b style=color:black> Tails </b>";
+					// flip a coin either heads or tails
+					// change the color of the result to purple if heads and green for tails
+					// I used HTML for this
+					int flipCoin = ((int) Math.random() * 2);
+					String fMsg = "Ezpz u got <style=color:purple> Heads ¯\\_(^_^)_/¯";
+					if (flipCoin == 2) {
+						fMsg = "Oh u got <style=color:green>Tails";
 					}
 					sendMessage(client, fMsg);
 					wasCommand = true;
+					break;
+				case MUTE:
+					String[] msgMute = message.split(" ");
+					String mutedUser = msgMute[1];
+					client.mutedList.add(mutedUser);
+					sendMessage(client, "is now muted " + mutedUser);
+					wasCommand = true;
+					break;
+				case UNMUTE:
+					String[] msgUnmute = message.split(" ");
+					String unmutedUser = msgUnmute[1];
+					for (String name : client.mutedList) {
+						if (name.equals(unmutedUser)) {
+							client.mutedList.remove(unmutedUser);
+							sendMessage(client, "is now unmuted " + unmutedUser);
+							wasCommand = true;
+							break;
+						}
+					}
 					break;
 				}
 			}
@@ -168,6 +192,7 @@ public class Room implements AutoCloseable {
 	protected void sendMessage(ServerThread sender, String message) {
 		log.log(Level.INFO, getName() + ": Sending message to " + clients.size() + " clients");
 		if (processCommands(message, sender)) {
+			// it was a command, don't broadcast
 			return;
 		}
 		if (sendPM(sender, message)) {
@@ -175,18 +200,19 @@ public class Room implements AutoCloseable {
 		}
 		Iterator<ServerThread> iter = clients.iterator();
 		while (iter.hasNext()) {
-
 			ServerThread client = iter.next();
-			boolean messageSent = client.send(sender.getClientName(), message);
-			if (!messageSent) {
-				iter.remove();
-				log.log(Level.INFO, "Removed client " + client.getId());
+			if (!client.isMuted(sender.getClientName())) {
+				boolean messageSent = client.send(sender.getClientName(), message);
+				if (!messageSent) {
+					iter.remove();
+					log.log(Level.INFO, "Removed client " + client.getId());
+				}
 			}
 		}
 	}
 
 	protected boolean sendPM(ServerThread sender, String message) {
-		boolean isPM = false;
+		boolean pm = false;
 		String receiver = null;
 
 		if (message.indexOf("@") > -1) {
@@ -194,22 +220,26 @@ public class Room implements AutoCloseable {
 			for (String word : words) {
 				if (word.charAt(0) == '@') {
 					receiver = word.substring(1);
-					isPM = true;
+					pm = true;
 
 					Iterator<ServerThread> iter = clients.iterator();
 					while (iter.hasNext()) {
-						ServerThread c = iter.next();
-						if (c.getClientName().equals(receiver)) {
-							c.send(sender.getClientName(), message);
+						ServerThread userPM = iter.next();
+						if (userPM.getClientName().equals(receiver)) {
+							userPM.send(sender.getClientName(), message);
 						}
 					}
 				}
 			}
 			sender.send(sender.getClientName(), message);
 		}
-		return isPM;
+		return pm;
 	}
 
+	/***
+	 * Will attempt to migrate any remaining clients to the Lobby room. Will then
+	 * set references to null and should be eligible for garbage collection
+	 */
 	public List<String> getRooms() {
 		return server.getRooms();
 	}
