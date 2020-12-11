@@ -9,8 +9,6 @@ import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -65,8 +63,8 @@ public class ClientUI extends JFrame implements Event {
 		});
 		roomsMenu.add(roomsSearch);
 		menu.add(roomsMenu);
-		windowSize.width *= .5;
-		windowSize.height *= .6;
+		windowSize.width *= .6;
+		windowSize.height *= .7;
 		setPreferredSize(windowSize);
 		setSize(windowSize);// This is needed for setLocationRelativeTo()
 		setLocationRelativeTo(null);
@@ -325,24 +323,6 @@ public class ClientUI extends JFrame implements Event {
 		}
 	}
 
-	// helper method for appending messages to chat history file
-	static void writeToFile(String file, String msg) {
-		try (FileWriter writer = new FileWriter(file, true)) {
-			writer.write(msg);
-			writer.write(System.lineSeparator());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	@Override
-	public void onMessageReceive(String clientName, String message) {
-		log.log(Level.INFO, String.format("%s: %s", clientName, message));
-		self.addMessage(String.format("%s: %s", clientName, message));
-		// messages are appended to the chat history file
-		writeToFile("chatHistory.txt", clientName + ": " + message);
-	}
-
 	@Override
 	public void onChangeRoom() {
 		Iterator<User> iter = users.iterator();
@@ -352,25 +332,6 @@ public class ClientUI extends JFrame implements Event {
 			iter.remove();
 		}
 		goToPanel("lobby");
-	}
-
-	public static void main(String[] args) {
-		ClientUI ui = new ClientUI("My UI");
-		if (ui != null) {
-			log.log(Level.FINE, "Started");
-		}
-
-		// creating the chat history file
-		try {
-			File f = new File("chatHistory.txt");
-			if (f.createNewFile()) {
-				System.out.println("Chat history file created.");
-			} else {
-				System.out.println("Chat history file already exists.");
-			}
-		} catch (Exception e) {
-			System.err.println(e);
-		}
 	}
 
 	@Override
