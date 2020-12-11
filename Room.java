@@ -16,7 +16,6 @@ public class Room implements AutoCloseable {
 	private final static String JOIN_ROOM = "joinroom";
 	private final static String ROLL = "roll";
 	private final static String FLIP = "flip";
-	private final static String PM = "@";
 
 	public Room(String name) {
 		this.name = name;
@@ -122,16 +121,21 @@ public class Room implements AutoCloseable {
 					wasCommand = true;
 					break;
 				case ROLL:
-					int roll = (int) Math.random() * (1000);
-					String rMsg = "You rolled: " + Integer.toString(roll);
+					// roll a number from 1 to 1000 randomly
+					// changed the output text into underlined
+					int randomNum = (int) ((Math.random() * (1000)));
+					String rMsg = "<u>The number is<u> " + Integer.toString(randomNum);
 					sendMessage(client, rMsg);
 					wasCommand = true;
 					break;
 				case FLIP:
-					int flip = (int) Math.random() * 2;
-					String fMsg = "<<b style=color:black> Heads </b>";
-					if (flip == 0) {
-						fMsg = "<b style=color:black> Tails </b>";
+					// flip a coin either heads or tails
+					// change the color of the result to purple if heads and green for tails
+					// I used HTML for this
+					int flipCoin = ((int) Math.random() * 2);
+					String fMsg = "Ezpz u got <style=color:purple> Heads ¯\\_(^_^)_/¯";
+					if (flipCoin == 2) {
+						fMsg = "Oh u got <style=color:green>Tails";
 					}
 					sendMessage(client, fMsg);
 					wasCommand = true;
@@ -186,7 +190,7 @@ public class Room implements AutoCloseable {
 	}
 
 	protected boolean sendPM(ServerThread sender, String message) {
-		boolean isPM = false;
+		boolean pm = false;
 		String receiver = null;
 
 		if (message.indexOf("@") > -1) {
@@ -194,7 +198,7 @@ public class Room implements AutoCloseable {
 			for (String word : words) {
 				if (word.charAt(0) == '@') {
 					receiver = word.substring(1);
-					isPM = true;
+					pm = true;
 
 					Iterator<ServerThread> iter = clients.iterator();
 					while (iter.hasNext()) {
@@ -207,7 +211,7 @@ public class Room implements AutoCloseable {
 			}
 			sender.send(sender.getClientName(), message);
 		}
-		return isPM;
+		return pm;
 	}
 
 	public List<String> getRooms() {
