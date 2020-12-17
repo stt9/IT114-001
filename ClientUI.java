@@ -9,6 +9,8 @@ import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -63,8 +65,8 @@ public class ClientUI extends JFrame implements Event {
 		});
 		roomsMenu.add(roomsSearch);
 		menu.add(roomsMenu);
-		windowSize.width *= .6;
-		windowSize.height *= .7;
+		windowSize.width *= .7;
+		windowSize.height *= .8;
 		setPreferredSize(windowSize);
 		setSize(windowSize);// This is needed for setLocationRelativeTo()
 		setLocationRelativeTo(null);
@@ -133,9 +135,7 @@ public class ClientUI extends JFrame implements Event {
 			public void actionPerformed(ActionEvent e) {
 				String name = username.getText();
 				if (name != null && name.length() > 0) {
-					// need external ref since "this" context is the action event, not ClientUI
 					self.username = name;
-					// this order matters
 					pack();
 					self.setTitle(self.getTitle() + " - " + self.username);
 					SocketClient.INSTANCE.setUsername(self.username);
@@ -187,6 +187,20 @@ public class ClientUI extends JFrame implements Event {
 		input.add(button);
 		panel.add(input, BorderLayout.SOUTH);
 		this.add(panel, "lobby");
+
+		JButton exportChat = new JButton("Export");
+		exportChat.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportChat();
+			}
+
+		});
+		input.add(exportChat);
+
+		panel.add(input, BorderLayout.SOUTH);
+		this.add(panel);
 	}
 
 	void createPanelUserList() {
@@ -234,11 +248,37 @@ public class ClientUI extends JFrame implements Event {
 		final int PIXEL_PADDING = 6;
 		Dimension size = new Dimension(adv, hgt + PIXEL_PADDING);
 		final float PADDING_PERCENT = 1.1f;
-		// calculate modifier to line wrapping so we can display the wrapped message
 		int mult = (int) Math.floor(size.width / (textArea.getSize().width * PADDING_PERCENT));
-		// System.out.println(mult);
 		mult++;
 		return size.height * mult;
+	}
+
+	void exportChat() {
+		try {
+			File f = new File("chatistory.txt");
+			if (f.createNewFile()) {
+				System.out.println("Chat history file created.");
+			} else {
+				System.out.println("Chat history file already exists.");
+			}
+		} catch (Exception e) {
+			System.err.println(e);
+		}
+		StringBuilder sb = new StringBuilder();
+		Component[] comps = textArea.getComponents();
+		for (Component msg : comps) {
+			JEditorPane jep = (JEditorPane) msg;
+			if (jep != null) {
+				sb.append(jep.getText() + System.lineSeparator());
+			}
+		}
+		try {
+			FileWriter fw = new FileWriter("chathistory.txt");
+			fw.write(sb.toString());
+			fw.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	void addMessage(String str) {
@@ -246,18 +286,14 @@ public class ClientUI extends JFrame implements Event {
 		JEditorPane entry = new JEditorPane();
 		entry.setContentType("text/html");
 		entry.setEditable(false);
-
-		// entry.setLayout(null);
 		entry.setText(str);
 		Dimension d = new Dimension(textArea.getSize().width, calcHeightForText(str));
-		// attempt to lock all dimensions
 		entry.setMinimumSize(d);
 		entry.setPreferredSize(d);
 		entry.setMaximumSize(d);
 		textArea.add(entry);
 
 		pack();
-		// System.out.println(entry.getSize());
 		JScrollBar sb = ((JScrollPane) textArea.getParent().getParent()).getVerticalScrollBar();
 		sb.setValue(sb.getMaximum());
 	}
@@ -273,12 +309,10 @@ public class ClientUI extends JFrame implements Event {
 	void goToPanel(String panel) {
 		switch (panel) {
 		case "rooms":
-			// TODO get rooms
 			roomsPanel.removeAllRooms();
 			SocketClient.INSTANCE.sendGetRooms(null);
 			break;
 		default:
-			// no need to react
 			break;
 		}
 		card.show(this.getContentPane(), panel);
@@ -323,6 +357,21 @@ public class ClientUI extends JFrame implements Event {
 		}
 	}
 
+	static void writeToFile(String file, String msg) {
+		try (FileWriter writer = new FileWriter(file, true)) {
+			writer.write(msg);
+			writer.write(System.lineSeparator());
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void onMessageReceive(String clientName, String message) {
+		log.log(Level.INFO, String.format("%s: %s", clientName, message));
+		self.addMessage(String.format("%s: %s", clientName, message));
+	}
+
 	@Override
 	public void onChangeRoom() {
 		Iterator<User> iter = users.iterator();
@@ -332,6 +381,18 @@ public class ClientUI extends JFrame implements Event {
 			iter.remove();
 		}
 		goToPanel("lobby");
+	}
+
+	@Override
+	public void onIsMuted(String clientName) {
+		System.out.println("LOL");
+	}
+
+	public static void main(String[] args) {
+		ClientUI ui = new ClientUI("My UI");
+		if (ui != null) {
+			log.log(Level.FINE, "Started");
+		}
 	}
 
 	@Override
