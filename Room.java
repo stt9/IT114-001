@@ -134,7 +134,7 @@ public class Room implements AutoCloseable {
 					// change the color of the result to purple if heads and green for tails
 					// I used HTML for this
 					int flipCoin = ((int) Math.random() * 2);
-					String fMsg = "Ezpz u got <style=color:purple> Heads Â¯\\_(^_^)_/Â¯";
+					String fMsg = "Ezpz u got <style=color:purple> Heads ¯\\_(^_^)_/¯";
 					if (flipCoin == 2) {
 						fMsg = "Oh u got <style=color:green>Tails";
 					}
@@ -145,7 +145,7 @@ public class Room implements AutoCloseable {
 					String[] msgMute = message.split(" ");
 					String mutedUser = msgMute[1];
 					client.mutedList.add(mutedUser);
-					sendMessage(client, "is now muted " + mutedUser);
+					sendMessage(client, "<b> muted <b> " + mutedUser);
 					wasCommand = true;
 					break;
 				case UNMUTE:
@@ -154,7 +154,7 @@ public class Room implements AutoCloseable {
 					for (String name : client.mutedList) {
 						if (name.equals(unmutedUser)) {
 							client.mutedList.remove(unmutedUser);
-							sendMessage(client, "is now unmuted " + unmutedUser);
+							sendMessage(client, "<b>unmuted <b>" + unmutedUser);
 							wasCommand = true;
 							break;
 						}
@@ -192,7 +192,6 @@ public class Room implements AutoCloseable {
 	protected void sendMessage(ServerThread sender, String message) {
 		log.log(Level.INFO, getName() + ": Sending message to " + clients.size() + " clients");
 		if (processCommands(message, sender)) {
-			// it was a command, don't broadcast
 			return;
 		}
 		if (sendPM(sender, message)) {
